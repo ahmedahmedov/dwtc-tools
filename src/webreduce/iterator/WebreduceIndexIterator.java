@@ -1,15 +1,15 @@
 package webreduce.iterator;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.store.FSDirectory;
+
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 /*
  * Specialized version of the ParallelIterator that iterates a Lucene index instead
@@ -29,12 +29,12 @@ public abstract class WebreduceIndexIterator extends ParallelIterator {
 
 	@Override
 	public void iterate(String inPath) throws IOException, InterruptedException {
-		File inDir = new File(inPath);
-		IndexSearcher searcher = new IndexSearcher(
-				DirectoryReader.open(new NIOFSDirectory(inDir)));
-		final IndexReader reader = searcher.getIndexReader();
 
-		System.out.println("Iterating " + inDir);
+
+		final IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(inPath)));
+		IndexSearcher searcher = new IndexSearcher(reader);
+
+		System.out.println("Iterating " + inPath);
 
 		// create jobs
 		int jobSize = (int) Math.ceil((double) reader.maxDoc() / maxThreads);

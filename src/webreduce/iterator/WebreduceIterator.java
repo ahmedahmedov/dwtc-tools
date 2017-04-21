@@ -1,21 +1,14 @@
 package webreduce.iterator;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.util.Collection;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipException;
-
+import com.google.common.io.LineReader;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 
-import com.google.common.io.LineReader;
+import java.io.*;
+import java.util.Collection;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipException;
 
 /* Most interesting subclass of ParallelItereator, subclass this to create custom iterators that work 
  * with the DWTC dataset.
@@ -51,6 +44,7 @@ public abstract class WebreduceIterator extends ParallelIterator {
 						// do the actual processing
 						while (true) {
 							String l = lReader.readLine();
+							//System.out.println(l);
 							if (l == null)
 								break;
 							// process webtable
@@ -63,6 +57,8 @@ public abstract class WebreduceIterator extends ParallelIterator {
 								key = "";
 								value = splitLine[0];
 							}
+
+							//System.out.println("key: "+ key + " value: " + value);
 							process(key, value);
 							finishedItem();
 						}

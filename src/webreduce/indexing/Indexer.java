@@ -1,47 +1,40 @@
 package webreduce.indexing;
 
+import com.google.common.base.Joiner;
+import com.google.common.net.InternetDomainName;
+import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Longs;
+import com.martiansoftware.jsap.*;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.store.SimpleFSDirectory;
+import org.apache.lucene.document.DoublePoint;
+import org.iq80.leveldb.DB;
+import org.iq80.leveldb.Options;
+import webreduce.cleaning.CustomAnalyzer;
+import webreduce.data.Dataset;
+import webreduce.iterator.WebreduceIterator;
+import webreduce.typing.DataType;
+import webreduce.typing.Types;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.store.SimpleFSDirectory;
-import org.apache.lucene.util.Version;
-
-import webreduce.cleaning.CustomAnalyzer;
-import webreduce.data.Dataset;
-import webreduce.iterator.WebreduceIterator;
-import webreduce.typing.Types;
-
-import com.google.common.base.Joiner;
-import com.google.common.net.InternetDomainName;
-import com.google.common.primitives.Longs;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Switch;
-import com.martiansoftware.jsap.UnflaggedOption;
-
-import org.iq80.leveldb.*;
-
-import static org.fusesource.leveldbjni.JniDBFactory.*;
+import static org.fusesource.leveldbjni.JniDBFactory.bytes;
+import static org.fusesource.leveldbjni.JniDBFactory.factory;
 
 public class Indexer extends WebreduceIterator {
 
@@ -52,6 +45,7 @@ public class Indexer extends WebreduceIterator {
 	// index only tables that contained <th> tags in the original HTML
 	protected static final String HEADERED_TABLES_ONLY = "headeredTablesOnly";
 
+	protected static final String NUMERICAL_RANGE_INDEXING = "numericalRangeIndexing";
 	// store the original data as a stored field in the index
 	protected static final String STORE_FULL_RESULT = "storeFullResult";
 	// store the original data as in a leveldb
@@ -74,12 +68,10 @@ public class Indexer extends WebreduceIterator {
 
 	public Indexer(JSAPResult config) throws IOException {
 		String outputPath = config.getString(OUTPUT_PATH, "<NONE>");
-		if (!outputPath.equals("<NONE>")) {
-			SimpleFSDirectory idx_dir = new SimpleFSDirectory(new File(
-					outputPath));
+        if (!outputPath.equals("<NONE>")) {
+            SimpleFSDirectory idx_dir = new SimpleFSDirectory(Paths.get(outputPath));
 
-			IndexWriterConfig indexConfig = new IndexWriterConfig(
-					Version.LUCENE_4_10_2, analyzer);
+			IndexWriterConfig indexConfig = new IndexWriterConfig(analyzer);
 			this.writer = new IndexWriter(idx_dir, indexConfig);
 		}  else {
 			this.writer = null;
@@ -132,6 +124,7 @@ public class Indexer extends WebreduceIterator {
 
     protected void processDataset(Dataset er) throws IOException {
 		String url = er.getUrl();
+        System.out.println("Er: " + er.getUrl());
 		if (!(url.contains(".com") || url.contains(".net")
 				|| url.contains(".org") || url.contains(".uk"))) {
 			return;
@@ -211,7 +204,69 @@ public class Indexer extends WebreduceIterator {
 				leveldb.put(Longs.toByteArray(key), bytes(preprocessedResult));
 			}
 		}
-		writer.addDocument(doc);
+
+
+        String[] columnTypes = er.getColumnTypes();
+
+        // System.out.println("URL: " + er.getUrl());
+        for (int i = 0; i < columnTypes.length; i++) {
+            String columnType = columnTypes[i];
+            switch (columnType) {
+                case "Double": {//todo
+                    for (String value : er.relation[i]) {
+
+                        double dvalue = coerceToNumber(value);
+                        //System.out.println(value + " - " + dvalue);
+
+                        if (dvalue != Double.MAX_VALUE) {
+                            doc.add(new DoublePoint("value", dvalue));
+                        }
+                    }
+                }
+                break;
+                case "Integer": {
+
+                    for (String value : er.relation[i]) {
+
+                        double dvalue = coerceToNumber(value);
+                        // System.out.println(value + " - " + dvalue);
+                        if (dvalue != Double.MAX_VALUE) {
+                            doc.add(new DoublePoint("value", dvalue));
+                        }
+                    }
+                }
+                break;
+                case "Long": {
+                    for (String value : er.relation[i]) {
+                        double dvalue = coerceToNumber(value);
+                        // System.out.println(value + " - " + dvalue);
+                        if (dvalue != Double.MAX_VALUE) {
+                            doc.add(new DoublePoint("value", dvalue));
+                        }
+                    }
+                }
+                break;
+                case "Currency": { //todo
+                    for (String value : er.relation[i]) {
+                        double dvalue = coerceToNumber(value);
+                        //System.out.println(dvalue);
+                        if (dvalue != Double.MAX_VALUE) {
+                            doc.add(new DoublePoint("value", dvalue));
+                        }
+                    }
+                }
+                break;
+
+
+            }
+        }
+
+        indexNumericColumn(er, doc);
+
+
+
+
+        writer.addDocument(doc);
 	}
 
 	@Override
@@ -273,5 +328,98 @@ public class Indexer extends WebreduceIterator {
 		}
 		return urlSplitPattern.split(s);
 	}
+
+    //added by ahmedov
+    protected  void indexNumericColumn(Dataset er, Document doc){
+        String [][] relation = er.relation;
+        //AtomicInteger i = new AtomicInteger(0);
+        //SynchronizedCounter s = new SynchronizedCounter();
+        ThreadLocal<Integer> f = new ThreadLocal<Integer>();
+        f.set(0);
+        for(String [] column: relation){
+            DataType type = Types.columnType(column);
+            if (type==DataType.EMAIL || type ==DataType.DATETIME || type ==DataType.NONE || type ==DataType.STRING || type == DataType.URL ){
+                continue;
+            }
+            else{
+                double min = Double.MAX_VALUE;
+                double max = Double.MIN_VALUE;
+                for(String value: column){
+                    double d = coerceToNumber(value);
+                    if(d!=Double.MAX_VALUE){
+                        if(min>d) min = d;
+                        if(max<d) max = d;
+                        doc.add(new DoublePoint(""+f.get()));
+                    }
+                }
+                //i.incrementAndGet();
+                f.set(f.get()+1);
+                doc.add(new DoublePoint("minmax", min));
+                doc.add(new DoublePoint("minmax", max));
+                //s.increment();
+            }
+
+        }
+
+
+    }
+
+    protected double coerceToNumber(String v) {
+
+        double THOUSAND = 1000;
+        double MILLION = 1000000;
+        double BILLION = 1000000000;
+
+        Matcher matcher = constants.toDouble.matcher(v);
+
+        Set numbers = new HashSet<String>();
+        while (matcher.find()) {
+            numbers.add(matcher.group());
+            //System.out.println("Matched to: " + matcher.group());
+        }
+        //System.out.println(numbers.size());
+
+        if (numbers.isEmpty()) {
+            return Double.MAX_VALUE;
+        }
+        String s = findMaxSize(numbers);
+
+        if (s.length() < ((double) v.length()) * 0.5 && !v.startsWith(s))
+            return Double.MAX_VALUE;
+
+        double d = Double.MAX_VALUE;
+        // System.out.println("matched string: " + s);
+        if (constants.toDoubleK.matcher(s).matches()) {
+            return Doubles.tryParse(s.trim().replaceAll("[^\\d\\.-]+", "")).doubleValue() * THOUSAND;
+        } else if (constants.toDoubleM.matcher(s).matches()) {
+            return Doubles.tryParse(s.trim().replaceAll("[^\\d\\.-]+", "")).doubleValue() * MILLION;
+
+        } else if (constants.toDoubleB.matcher(s).matches()) {
+            return Doubles.tryParse(s.trim().replaceAll("[^\\d\\.-]+", "")).doubleValue() * BILLION;
+
+        } else {
+             System.out.println("Didn't match anything");
+            return Doubles.tryParse(s.trim().replaceAll("[^\\d\\.-]+", "")).doubleValue();
+
+        }
+
+    }
+
+    protected String findMaxSize(Set numbers) {
+        String s = new String();
+        int max = 0;
+        Iterator it = numbers.iterator();
+        while (it.hasNext()) {
+
+            String nextString;
+            nextString = (String) it.next();
+            int size = nextString.length();
+            if (size > max) {
+                s = nextString;
+            }
+        }
+        return s;
+    }
+
 
 }

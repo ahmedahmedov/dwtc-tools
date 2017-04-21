@@ -1,8 +1,5 @@
 package webreduce.cleaning;
 
-import java.io.IOException;
-import java.io.Reader;
-
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
@@ -12,13 +9,15 @@ import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.apache.lucene.analysis.standard.ClassicFilter;
 import org.apache.lucene.analysis.standard.ClassicTokenizer;
 
+import java.io.Reader;
+
 /* Just an example custom Lucene analyzer */
 public class CustomAnalyzer extends Analyzer {
 
+
 	@Override
-	protected TokenStreamComponents createComponents(final String fieldName,
-			final Reader reader) {
-		final ClassicTokenizer src = new ClassicTokenizer(reader);
+	protected TokenStreamComponents createComponents(String fieldName) {
+		final ClassicTokenizer src = new ClassicTokenizer();
 		src.setMaxTokenLength(255);
 		TokenStream filter = new ClassicFilter(src);
 		filter = new LowerCaseFilter(filter);
@@ -26,7 +25,7 @@ public class CustomAnalyzer extends Analyzer {
 		filter = new ASCIIFoldingFilter(filter);
 		return new TokenStreamComponents(src, filter) {
 			@Override
-			protected void setReader(final Reader reader) throws IOException {
+			protected void setReader(final Reader reader) {
 				src.setMaxTokenLength(255);
 				super.setReader(reader);
 			}
