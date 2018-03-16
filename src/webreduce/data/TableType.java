@@ -1,11 +1,22 @@
 package webreduce.data;
 
 import java.io.Serializable;
+import com.google.gson.annotations.SerializedName;
+
 
 public enum TableType implements Serializable {
+	@SerializedName("LAYOUT")
 	LAYOUT,
-	RELATION,
+
+    @SerializedName("RELATION")
+    RELATION,
+
+    @SerializedName("MATRIX")
 	MATRIX,
-	ENTITY,
-	OTHER
+
+    @SerializedName("ENTITY")
+    ENTITY,
+
+    @SerializedName("OTHER")
+    OTHER
 }

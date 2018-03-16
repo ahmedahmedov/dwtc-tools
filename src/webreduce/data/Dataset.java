@@ -22,9 +22,19 @@ public class Dataset implements Serializable {
 								// existed
 	public String url = "";
 	public Boolean hasHeader = null; // true if the original HTML had <th> tags
-	public HeaderPosition headerPosition = null; // position of those th tags
-	public TableType tableType = null; // table classification (entity,
-										// relational, matrix ...)
+	public HeaderPosition headerPosition = HeaderPosition.FIRST_COLUMN; // position of those th tags
+	public TableType tableType = TableType.RELATION; // table classification (entity,
+
+
+	public String test="test";
+
+	public String getTest(){
+		return test;
+	}
+
+	public void setTest(String tested){
+		this.test = tested;
+	}
 	public String[] termSet = null; // top-terms extracted from the source page
 	
 	// metadata used to identify and locate a table in the CC corpus
@@ -53,6 +63,7 @@ public class Dataset implements Serializable {
 		return this.relation.length;
 	}
 
+	//modify this to properly set attributes using HeaderPosition
 	public String[] getAttributes() {
 		String[] attrs = new String[getNumCols()];
 		for (int i = 0; i < getNumCols(); i++) {

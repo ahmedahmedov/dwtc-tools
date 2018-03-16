@@ -12,9 +12,9 @@ import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.SimpleFSDirectory;
-import org.apache.lucene.document.DoublePoint;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
+import tagger.CrfTag;
 import webreduce.cleaning.CustomAnalyzer;
 import webreduce.data.Dataset;
 import webreduce.iterator.WebreduceIterator;
@@ -35,6 +35,8 @@ import java.util.regex.Pattern;
 
 import static org.fusesource.leveldbjni.JniDBFactory.bytes;
 import static org.fusesource.leveldbjni.JniDBFactory.factory;
+
+import tagger.CrfTagger;
 
 public class Indexer extends WebreduceIterator {
 
@@ -63,6 +65,7 @@ public class Indexer extends WebreduceIterator {
 	private DB leveldb;
 
 	private AtomicLong nextKey = new AtomicLong(0);
+	CrfTagger tagger = new CrfTagger("/Users/ahmedov/crf_mix500.model");
 
 
 
@@ -96,6 +99,8 @@ public class Indexer extends WebreduceIterator {
 				STORE_FULL_RESULT).setShortFlag('s'));
 		jsap.registerParameter(new Switch(STORE_FULL_RESULT_IN_LEVELDB).setLongFlag(
 				STORE_FULL_RESULT_IN_LEVELDB).setShortFlag('l'));
+        jsap.registerParameter(new Switch(NUMERICAL_RANGE_INDEXING).setLongFlag(
+                NUMERICAL_RANGE_INDEXING).setShortFlag('n'));
 		jsap.registerParameter(new UnflaggedOption(CORPUS_PATH)
 				.setRequired(true));
 		jsap.registerParameter(new UnflaggedOption(OUTPUT_PATH)
@@ -122,11 +127,13 @@ public class Indexer extends WebreduceIterator {
 		return;
 	}
 
+	//remove non-english URLs
+    //
     protected void processDataset(Dataset er) throws IOException {
 		String url = er.getUrl();
-        System.out.println("Er: " + er.getUrl());
+        //System.out.println("Er: " + er.getUrl());
 		if (!(url.contains(".com") || url.contains(".net")
-				|| url.contains(".org") || url.contains(".uk"))) {
+				|| url.contains(".org") || url.contains(".uk")) || url.contains(".gov")) {
 			return;
 		}
 
@@ -186,14 +193,24 @@ public class Indexer extends WebreduceIterator {
 
 		Document doc = new Document();
 
+
+		String[] columnTypes = er.getColumnTypes();
+
+        if(config.getBoolean(NUMERICAL_RANGE_INDEXING) && columnTypes!=null) {
+			// System.out.println("URL: " + er.getUrl());
+				indexNumericColumn(er, doc);
+		}
+
+
 		doc.add(new TextField("url", er.getUrl(), Field.Store.NO));
 		doc.add(new TextField("title", title, Field.Store.NO));
 		doc.add(new TextField("attributes", attributesStr, Field.Store.NO));
 		doc.add(new TextField("entities", entitiesStr, Field.Store.NO));
 		doc.add(new TextField("terms", termsStr, Field.Store.NO));
 		doc.add(new TextField("keys", keysStr, Field.Store.NO));
-		doc.add(new StringField("tableType", er.getTableType().name(), Field.Store.YES));
-		if (config.getBoolean(STORE_FULL_RESULT)) {
+        doc.add(new StringField("tableType", er.getTableType().name(), Field.Store.YES));
+
+        if (config.getBoolean(STORE_FULL_RESULT)) {
 			doc.add(new StoredField("full_result", preprocess(er)));
 		}
 		if (config.getBoolean(STORE_FULL_RESULT_IN_LEVELDB)) {
@@ -206,68 +223,9 @@ public class Indexer extends WebreduceIterator {
 		}
 
 
-        String[] columnTypes = er.getColumnTypes();
-
-        // System.out.println("URL: " + er.getUrl());
-        for (int i = 0; i < columnTypes.length; i++) {
-            String columnType = columnTypes[i];
-            switch (columnType) {
-                case "Double": {//todo
-                    for (String value : er.relation[i]) {
-
-                        double dvalue = coerceToNumber(value);
-                        //System.out.println(value + " - " + dvalue);
-
-                        if (dvalue != Double.MAX_VALUE) {
-                            doc.add(new DoublePoint("value", dvalue));
-                        }
-                    }
-                }
-                break;
-                case "Integer": {
-
-                    for (String value : er.relation[i]) {
-
-                        double dvalue = coerceToNumber(value);
-                        // System.out.println(value + " - " + dvalue);
-                        if (dvalue != Double.MAX_VALUE) {
-                            doc.add(new DoublePoint("value", dvalue));
-                        }
-                    }
-                }
-                break;
-                case "Long": {
-                    for (String value : er.relation[i]) {
-                        double dvalue = coerceToNumber(value);
-                        // System.out.println(value + " - " + dvalue);
-                        if (dvalue != Double.MAX_VALUE) {
-                            doc.add(new DoublePoint("value", dvalue));
-                        }
-                    }
-                }
-                break;
-                case "Currency": { //todo
-                    for (String value : er.relation[i]) {
-                        double dvalue = coerceToNumber(value);
-                        //System.out.println(dvalue);
-                        if (dvalue != Double.MAX_VALUE) {
-                            doc.add(new DoublePoint("value", dvalue));
-                        }
-                    }
-                }
-                break;
-
-
-            }
-        }
-
-        indexNumericColumn(er, doc);
-
-
-
 
         writer.addDocument(doc);
-	}
+}
 
 	@Override
 	protected void finishProcessFile(File f) throws IOException {
@@ -331,6 +289,7 @@ public class Indexer extends WebreduceIterator {
 
     //added by ahmedov
     protected  void indexNumericColumn(Dataset er, Document doc){
+
         String [][] relation = er.relation;
         //AtomicInteger i = new AtomicInteger(0);
         //SynchronizedCounter s = new SynchronizedCounter();
@@ -345,17 +304,18 @@ public class Indexer extends WebreduceIterator {
                 double min = Double.MAX_VALUE;
                 double max = Double.MIN_VALUE;
                 for(String value: column){
-                    double d = coerceToNumber(value);
+                    Double d = tagger.parseBestGuess(value);
+                    doc.add(new DoublePoint("value",d.doubleValue()));
                     if(d!=Double.MAX_VALUE){
-                        if(min>d) min = d;
-                        if(max<d) max = d;
-                        doc.add(new DoublePoint(""+f.get()));
+                        if(min>d) min = d.doubleValue();
+                        if(max<d) max = d.doubleValue();
                     }
                 }
                 //i.incrementAndGet();
+				double minA[] = {min};
+				double maxA[] = {max};
                 f.set(f.get()+1);
-                doc.add(new DoublePoint("minmax", min));
-                doc.add(new DoublePoint("minmax", max));
+                doc.add(new DoubleRange("minmax", minA, maxA));
                 //s.increment();
             }
 
@@ -363,6 +323,7 @@ public class Indexer extends WebreduceIterator {
 
 
     }
+
 
     protected double coerceToNumber(String v) {
 

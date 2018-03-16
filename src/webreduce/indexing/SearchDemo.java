@@ -6,6 +6,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.iq80.leveldb.DB;
+import org.iq80.leveldb.DBIterator;
 import org.iq80.leveldb.Options;
 import webreduce.data.Dataset;
 import webreduce.visualize.tableVisualizer;
@@ -14,7 +15,6 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -24,9 +24,13 @@ import static org.fusesource.leveldbjni.JniDBFactory.factory;
  * Created by ahmedov on 03/06/16.
  */
 public class SearchDemo {
-    public static String[] entities = {"Apple","IBM", "Bank of China", "BMW", "Daimler", "Royal Bank of Canada","Volkswagen Group","General Electric", "Deutsche Bank"};//{"Germany", "USA", "Italy", "Azerbaijan", "France"};
-    public static double [] values = {199.4,93.4, 105.1, 106.6, 18.82, 91.33, 134.19, 33.5};
-    public static String[] attributes = {"Sales","Revenue"};//{"GDP", "Gross Domestic Product"};
+    //public static String[] entities = {"Apple","IBM", "Bank of China", "BMW", "Daimler", "Royal Bank of Canada","Volkswagen Group","General Electric", "Deutsche Bank"};//{"Germany", "USA", "Italy", "Azerbaijan", "France"};
+    public static String[] entities = {"Azerbaijan", "USA", "Germany","UK"};
+    //public static double [] values = {199.4,93.4, 105.1, 106.6, 18.82, 91.33, 134.19, 33.5};
+    public static double [] values = {37.56};
+
+    //public static String[] attributes = {"GDP", "Gross Domestic Product"};
+    public static String[] attributes = {"GDP", "Gross Domestic Product"};
 
     public static List<Dataset> resultList = new ArrayList<>();
 
@@ -45,8 +49,6 @@ public class SearchDemo {
         options.createIfMissing(true);
         leveldb = factory.open(new File(path, "leveldb"), options);
 
-
-
         try {
             TopDocs topDocs = se.performNumericRangeQuery(entities, attributes, values, min, max, numberOfResults);
             ScoreDoc[] hits = topDocs.scoreDocs;
@@ -56,9 +58,29 @@ public class SearchDemo {
                 //String jsonString = doc.get("full_result");
                 byte[] result = leveldb.get(Longs.toByteArray(Longs.tryParse(doc.get("document_id"))));
                 String jsonString = new String(result);
+                System.out.println(doc.get("value"));
                 Dataset er = Dataset.fromJson(jsonString);
                 resultList.add(er);
             }
+            int i =0;
+            DBIterator iterator2 = leveldb.iterator();
+            /*try {
+                for(iterator.seekToFirst(); iterator.hasNext(); iterator.next()) {
+                    String key = new String(iterator.peekNext().getKey());
+                    String value = new String(iterator.peekNext().getValue());
+                    System.out.println(key+" = "+value);
+                }
+            } finally {
+                // Make sure you close the iterator to avoid resource leaks.
+                iterator.close();
+            }
+            */
+            iterator2.close();
+            String stats = leveldb.getProperty("leveldb.stats");
+            System.out.println(stats);
+
+
+
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -77,7 +99,6 @@ public class SearchDemo {
                     tv.drawTable(relation, cols, ds);
                 }
             });
-            System.out.println(Arrays.deepToString(relation));
 
         }
 

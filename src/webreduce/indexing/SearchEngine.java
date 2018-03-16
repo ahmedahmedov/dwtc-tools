@@ -52,6 +52,8 @@ public class SearchEngine {
 
         BooleanQuery.Builder bqa = new BooleanQuery.Builder(); //attribute final query
 
+        BooleanQuery.Builder bqe = new BooleanQuery.Builder(); //Entities final query
+
         for (String a : attributes) {
 
             Query qa = qpa.parse(a); //add each attribute to a query
@@ -64,20 +66,23 @@ public class SearchEngine {
 
         }
 
-        finalQuery.add(bqa.build(), BooleanClause.Occur.SHOULD);
+        finalQuery.add(bqa.build(), BooleanClause.Occur.MUST);
 
         for (String e : entities) {
             Query qe = qpe.parse(QueryParserBase.escape(e));
             //qe.setBoost(0.9f);
             Query qeph = qpe.parse("\"" + QueryParserBase.escape(e) + "\"");
             //qeph.setBoost(1.7f);
-            finalQuery.add(qe, BooleanClause.Occur.SHOULD);
-            finalQuery.add(qeph, BooleanClause.Occur.SHOULD);
+            bqe.add(qe, BooleanClause.Occur.SHOULD);
+            bqe.add(qeph, BooleanClause.Occur.SHOULD);
         }
+
+        finalQuery.add(bqe.build(), BooleanClause.Occur.MUST);
+
 
         //search per value
         for (double v: values){
-            Query numericQuery = LegacyNumericRangeQuery.newDoubleRange("value", v*0.8, v*1.2, true, true);
+            Query numericQuery = DoublePoint.newRangeQuery("value", v*0.8, v*1.2);
             finalQuery.add(numericQuery, BooleanClause.Occur.SHOULD);
         }
 
@@ -85,7 +90,7 @@ public class SearchEngine {
         //search for the whole range
         Query doubleRangeQuery = DoublePoint.newRangeQuery("value", min, max);
 
-        finalQuery.add(doubleRangeQuery, BooleanClause.Occur.MUST);
+        finalQuery.add(doubleRangeQuery, BooleanClause.Occur.SHOULD);
 
 
         //search columnWise
@@ -101,7 +106,7 @@ public class SearchEngine {
 
         for(int i =0;i<scoreDocs.length;i++){
             int docID = scoreDocs[i].doc;
-           System.out.println( searcher.explain(finalQuery.build(),docID).toString());
+           //System.out.println( searcher.explain(finalQuery.build(),docID).toString());
         }
 
 

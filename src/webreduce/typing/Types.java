@@ -15,7 +15,7 @@ import com.google.common.collect.Lists;
 public class Types {
 
 	static double TYPE_MAJORITY_THRESHOLD = 0.40;
-	static double NUMERIC_PERCENTAGE = 0.6;
+	static double NUMERIC_PERCENTAGE = 0.60;
 
 	static Pattern isCurrency = Pattern
 			.compile("-?\\s*([$£₤]\\s*[\\d,]+(\\.\\d+)?)|([\\d,]+(\\.\\d+)?\\s*[€])");

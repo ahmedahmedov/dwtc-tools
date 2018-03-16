@@ -5,9 +5,15 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 
 public enum DataType {
-	NONE(-1, "None"), STRING(0, "String"), EMAIL(1, "Email"), URL(2, "URL"), DATETIME(
-			3, "Datetime"), DOUBLE(4, "Double"), LONG(6, "Long"), INTEGER(7,
-			"Integer"), CURRENCY(8, "Currency");
+						NONE(-1, "None"),
+						STRING(0, "String"),
+						EMAIL(1, "Email"),
+						URL(2, "URL"),
+						DATETIME(3, "Datetime"),
+						DOUBLE(4, "Double"),
+						LONG(6, "Long"),
+						INTEGER(7, "Integer"),
+						CURRENCY(8, "Currency");
 
 	public final int Specificity;
 	public final String Name;
